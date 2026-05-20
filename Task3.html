@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic-Tac-Toe</title>
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --secondary: #a29bfe;
+            --bg: #a5a7aa;
+            --text: #2d3436;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 50px;
+            margin: 0;
+        }
+
+        .mode-selector {
+            margin-bottom: 20px;
+            background: #dfe6e9;
+            padding: 10px;
+            border-radius: 50px;
+        }
+
+        .mode-selector button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.3s;
+        }
+
+        .mode-selector button.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        #status {
+            font-size: 1.4rem;
+            margin-bottom: 20px;
+            height: 30px;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            gap: 10px;
+        }
+
+        .cell {
+            width: 100px;
+            height: 100px;
+            background: white;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: transform 0.1s, background 0.2s;
+        }
+
+        .cell:hover { background: #fafafa; transform: translateY(-2px); }
+        .cell.taken { cursor: not-allowed; }
+        .cell.x-color { color: #ff7675; }
+        .cell.o-color { color: var(--primary); }
+
+        .controls { margin-top: 30px; }
+        .reset-btn {
+            padding: 12px 30px;
+            background: var(--text);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Tic-Tac-Toe</h1>
+
+    <div class="mode-selector">
+        <button id="pvpMode" class="active">User vs User</button>
+        <button id="aiMode">User vs AI</button>
+    </div>
+
+    <div id="status">Player X's Turn</div>
+
+    <div class="board" id="board">
+        <div class="cell" data-index="0"></div>
+        <div class="cell" data-index="1"></div>
+        <div class="cell" data-index="2"></div>
+        <div class="cell" data-index="3"></div>
+        <div class="cell" data-index="4"></div>
+        <div class="cell" data-index="5"></div>
+        <div class="cell" data-index="6"></div>
+        <div class="cell" data-index="7"></div>
+        <div class="cell" data-index="8"></div>
+    </div>
+
+    <div class="controls">
+        <button class="reset-btn" onclick="resetGame()">Reset Board</button>
+    </div>
+
+    <script>
+        const cells = document.querySelectorAll('.cell');
+        const statusText = document.getElementById('status');
+        const pvpBtn = document.getElementById('pvpMode');
+        const aiBtn = document.getElementById('aiMode');
+
+        let board = ["", "", "", "", "", "", "", "", ""];
+        let currentPlayer = "X";
+        let isAiMode = false;
+        let gameActive = true;
+
+        const winPatterns = [
+            [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
+            [0, 3, 6], [1, 4, 7], [2, 5, 8], // Cols
+            [0, 4, 8], [2, 4, 6]             // Diags
+        ];
+
+        // Mode Switching
+        pvpBtn.addEventListener('click', () => {
+            isAiMode = false;
+            pvpBtn.classList.add('active');
+            aiBtn.classList.remove('active');
+            resetGame();
+        });
+
+        aiBtn.addEventListener('click', () => {
+            isAiMode = true;
+            aiBtn.classList.add('active');
+            pvpBtn.classList.remove('active');
+            resetGame();
+        });
+
+        function handleCellClick(e) {
+            const index = e.target.dataset.index;
+            if (board[index] !== "" || !gameActive) return;
+
+            playTurn(index);
+
+            // If AI mode is on and game isn't over, AI moves
+            if (isAiMode && gameActive && currentPlayer === "O") {
+                statusText.innerText = "AI is thinking...";
+                setTimeout(bestMove, 400);
+            }
+        }
+
+        function playTurn(index) {
+            board[index] = currentPlayer;
+            cells[index].innerText = currentPlayer;
+            cells[index].classList.add('taken', currentPlayer === "X" ? "x-color" : "o-color");
+            
+            if (checkWin(board, currentPlayer)) {
+                statusText.innerText = `Player ${currentPlayer} Wins!`;
+                gameActive = false;
+                return;
+            }
+
+            if (board.every(cell => cell !== "")) {
+                statusText.innerText = "Draw!";
+                gameActive = false;
+                return;
+            }
+
+            currentPlayer = currentPlayer === "X" ? "O" : "X";
+            statusText.innerText = isAiMode && currentPlayer === "O" ? "AI's Turn..." : `Player ${currentPlayer}'s Turn`;
+        }
+
+        // --- MINIMAX AI LOGIC ---
+        function bestMove() {
+            let bestScore = -Infinity;
+            let move;
+            for (let i = 0; i < 9; i++) {
+                if (board[i] === "") {
+                    board[i] = "O";
+                    let score = minimax(board, 0, false);
+                    board[i] = "";
+                    if (score > bestScore) {
+                        bestScore = score;
+                        move = i;
+                    }
+                }
+            }
+            playTurn(move);
+        }
+
+        function minimax(tempBoard, depth, isMaximizing) {
+            if (checkWin(tempBoard, "O")) return 10 - depth;
+            if (checkWin(tempBoard, "X")) return depth - 10;
+            if (tempBoard.every(c => c !== "")) return 0;
+
+            if (isMaximizing) {
+                let bestScore = -Infinity;
+                for (let i = 0; i < 9; i++) {
+                    if (tempBoard[i] === "") {
+                        tempBoard[i] = "O";
+                        bestScore = Math.max(bestScore, minimax(tempBoard, depth + 1, false));
+                        tempBoard[i] = "";
+                    }
+                }
+                return bestScore;
+            } else {
+                let bestScore = Infinity;
+                for (let i = 0; i < 9; i++) {
+                    if (tempBoard[i] === "") {
+                        tempBoard[i] = "X";
+                        bestScore = Math.min(bestScore, minimax(tempBoard, depth + 1, true));
+                        tempBoard[i] = "";
+                    }
+                }
+                return bestScore;
+            }
+        }
+
+        function checkWin(b, p) {
+            return winPatterns.some(pattern => pattern.every(i => b[i] === p));
+        }
+
+        function resetGame() {
+            board = ["", "", "", "", "", "", "", "", ""];
+            currentPlayer = "X";
+            gameActive = true;
+            statusText.innerText = "Player X's Turn";
+            cells.forEach(c => {
+                c.innerText = "";
+                c.classList.remove('taken', 'x-color', 'o-color');
+            });
+        }
+
+        cells.forEach(cell => cell.addEventListener('click', handleCellClick));
+    </script>
+</body>
+</html>
